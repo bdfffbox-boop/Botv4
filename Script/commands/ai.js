@@ -3,55 +3,78 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "ai",
-    version: "1.0.1",
+    version: "2.0.0",
     credit: "—͟͟͞͞𝐂𝐘𝐁𝐄𝐑 ☢️_𖣘 -𝐁𝐎𝐓 ⚠️ 𝑻𝑬𝑨𝑴_ ☢️",
-    description: "google ai",
+    description: "Smart Messenger AI Chat Bot",
     cooldowns: 0,
     hasPermssion: 0,
-    commandCategory: "google",
+    commandCategory: "ai",
     usages: {
-      en: "{pn} message | photo reply"
+      en: "{pn} <message> | reply to message"
     }
   },
 
   run: async ({ api, args, event }) => {
-    const input = args.join(" ");
-    const encodedApi = "aHR0cHM6Ly9hcGlzLWtlaXRoLnZlcmNlbC5hcHAvYWkvZGVlcHNlZWtWMz9xPQ==";
-    const apiUrl = Buffer.from(encodedApi, "base64").toString("utf-8");
+    try {
+      const userInput = args.join(" ");
+      let prompt = "";
 
-    if (event.type === "message_reply") {
-      try {
-        const imageUrl = event.messageReply.attachments[0]?.url;
-        if (!imageUrl)
-          return api.sendMessage("Please reply to an image.", event.threadID, event.messageID);
-
-        const res = await axios.post(`${apiUrl}${encodeURIComponent(input || "Describe this image.")}`, {
-          image: imageUrl
-        });
-
-        const result = res.data.result || res.data.response || res.data.message || "No response from AI.";
-        api.sendMessage(result, event.threadID, event.messageID);
-      } catch (err) {
-        console.error("Error:", err.message);
-        api.sendMessage("processing.....", event.threadID, event.messageID);
-      }
-    } else {
-      if (!input) {
-        return api.sendMessage(
-          "Hey I'm Ai Chat Bot\nHow can I assist you today?",
-          event.threadID,
-          event.messageID
-        );
+      // 🔁 যদি মেসেজ রিপ্লাই করা হয়
+      if (event.type === "message_reply") {
+        const replyText = event.messageReply.body || "";
+        prompt = `User replied to this message:\n"${replyText}"\n\nUser says:\n"${userInput || "Explain / respond properly"}"`;
+      } else {
+        if (!userInput) {
+          return api.sendMessage(
+            "🤖 Hi! আমি AI Bot\nযেকোনো প্রশ্ন করো বা কোনো মেসেজে reply দিয়ে কথা বলো 🙂",
+            event.threadID,
+            event.messageID
+          );
+        }
+        prompt = userInput;
       }
 
-      try {
-        const res = await axios.get(`${apiUrl}${encodeURIComponent(input)}`);
-        const result = res.data.result || res.data.response || res.data.message || "No response from AI.";
-        api.sendMessage(result, event.threadID, event.messageID);
-      } catch (err) {
-        console.error("Error:", err.message);
-        api.sendMessage("চাঁদের পাহাড় re Dakh ei file gece 😑", event.threadID, event.messageID);
-      }
+      // 🔐 API CONFIG (OpenAI compatible)
+      const API_KEY = process.env.OPENAI_API_KEY || "YOUR_API_KEY_HERE";
+
+      const response = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a helpful, smart Messenger chat bot. Reply in a friendly and clear way."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 500
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${API_KEY}`
+          }
+        }
+      );
+
+      const aiReply =
+        response.data.choices?.[0]?.message?.content ||
+        "🤖 Sorry, আমি ঠিক বুঝতে পারিনি।";
+
+      api.sendMessage(aiReply, event.threadID, event.messageID);
+    } catch (error) {
+      console.error("AI Error:", error.response?.data || error.message);
+      api.sendMessage(
+        "⚠️ AI এখন ব্যস্ত আছে, একটু পরে আবার চেষ্টা করো।",
+        event.threadID,
+        event.messageID
+      );
     }
   }
 };
